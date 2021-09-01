@@ -2,7 +2,7 @@
 import os
 import shutil
 import time
-from typing import List, Tuple, Optional
+from typing import Iterable, List, Tuple, Optional
 
 from mcdreforged.api.all import *
 
@@ -56,8 +56,17 @@ class Region:
 	def to_file_name(self):
 		return 'r.{}.{}.mca'.format(self.x, self.z)
 
-	def to_file_path(self):
-		return os.path.join(config['dimension_region_folder'][str(self.dim)], self.to_file_name())
+	def to_file_list(self):
+		file_list = []
+		folders = config['dimension_region_folder'][self.dim]
+		if isinstance(folders, str):
+			file_list.append(os.path.join(folders, self.to_file_name()))
+		elif isinstance(folders, Iterable):
+			for folder in folders:
+				file_list.append(os.path.join(folder, self.to_file_name()))
+		else:
+			pass
+		return file_list
 
 	def __eq__(self, other):
 		if not isinstance(other, type(self)):
@@ -146,19 +155,20 @@ def region_update(source: CommandSource):
 	print_log(source.get_server(), '{} 更新了 {} 个区域文件：'.format(source, len(regionList)))
 	historyList.clear()
 	for region in regionList:
-		source_dir = os.path.join(config['source_world_directory'], region.to_file_path())
-		destination = os.path.join(config['destination_world_directory'], region.to_file_path())
-		try:
-			source.get_server().logger.info('- "{}" -> "{}"'.format(source_dir, destination))
-			shutil.copyfile(source_dir, destination)
-		except Exception as e:
-			msg = '失败，错误信息：{}'.format(str(e))
-			flag = False
-		else:
-			msg = '成功'
-			flag = True
-		historyList.append((region, flag))
-		print_log(source.get_server(), '  {}: {}'.format(region, msg))
+		for region_file in region.to_file_list():
+			source_dir = os.path.join(config['source_world_directory'], region_file)
+			destination = os.path.join(config['destination_world_directory'], region_file)
+			try:
+				source.get_server().logger.info('- "{}" -> "{}"'.format(source_dir, destination))
+				shutil.copyfile(source_dir, destination)
+			except Exception as e:
+				msg = '失败，错误信息：{}'.format(str(e))
+				flag = False
+			else:
+				msg = '成功'
+				flag = True
+			historyList.append((region, flag))
+			print_log(source.get_server(), '  {}: {}'.format(region, msg))
 
 	regionList.clear()
 	time.sleep(1)
